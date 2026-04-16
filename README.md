@@ -1,4 +1,4 @@
-<img width="872" height="799" alt="image" src="https://github.com/user-attachments/assets/7813fee9-dae1-4165-8590-4fe6239e2672" /># Case Técnico – Cientista de Dados Júnior | Datarisk
+Case Técnico – Cientista de Dados Júnior | Datarisk
 
 ## Apresentação
 
