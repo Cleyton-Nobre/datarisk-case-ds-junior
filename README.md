@@ -1,40 +1,57 @@
-# Case Técnico – Cientista de Dados Júnior | Datarisk
+# Predição de Inadimplência de Crédito (Credit Risk)
 
-## Apresentação
+Este projeto implementa uma solução de Machine Learning para a previsão de risco de crédito, focada em identificar clientes com potencial de inadimplência baseado em atrasos de pagamento superiores a 5 dias.
 
-Este repositório contém o case técnico para o processo seletivo de **Cientista de Dados Júnior** na **Datarisk**, uma consultoria especializada em soluções baseadas em dados e inteligência aplicada ao mercado de crédito.
-O desafio proposto envolve um projeto de **risco de crédito**, tema central de grande parte dos projetos que realizamos com nossos clientes.
+## 📋 Visão Geral
 
-## Instruções
+A solução contida no notebook `solution.ipynb` prioriza a modularidade e a robustez do pré-processamento. Utiliza **Pipelines do Scikit-Learn** e **Transformadores Customizados** para garantir um fluxo de dados escalável e livre de vazamento de informações (*data leakage*), além de lidar com o forte desbalanceamento da variável alvo (71.978 adimplentes contra 5.436 inadimplentes).
 
-Todas as regras, orientações e detalhes sobre a execução do case estão no documento:
-📄 `Case DS Júnior 2025.pdf`
+## 🛠️ Tecnologias e Versões
 
-> O documento também contém **anexos com o dicionário de dados** e uma **visão dos relacionamentos entre as bases**, fundamentais para guiar sua análise.
-> **Leia com atenção antes de iniciar sua solução.**
+- **Python**: 3.14.4
+- **Pandas**: 3.0.2
+- **Numpy**: 2.4.4
+- **Scikit-Learn**: 1.8.0
+- **XGBoost**: 3.2.0
+- **Optuna**: 4.8.0
 
-## Bases de Dados
+*(Bibliotecas auxiliares incluem `matplotlib`, `seaborn` para visualização e `imbalanced-learn` para lidar com classes minoritárias)*
 
-Os arquivos estão disponíveis na pasta `/data` e incluem:
+## 💾 Dados e Estruturação
 
-- `base_cadastral.csv`: informações cadastrais dos clientes, como porte, segmento industrial, CEP, e-mail e data de cadastro.
-- `base_info.csv`: dados atualizados mensalmente com informações como renda do mês anterior e número de funcionários.
-- `base_pagamentos_desenvolvimento.csv`: histórico de transações anteriores dos clientes, incluindo data de vencimento, valor a pagar, taxa e data de pagamento (quando disponível).
-- `base_pagamentos_teste.csv`: transações recentes para as quais você deverá prever a probabilidade de inadimplência.
+O pipeline consome e consolida quatro arquivos CSV separados por ponto e vírgula (`;`):
+1. `base_cadastral.csv`
+2. `base_info.csv`
+3. `base_pagamentos_desenvolvimento.csv` (usada para treino e validação)
+4. `base_pagamentos_teste.csv` (usada para construir a base final de submissão `base_submit`)
 
-## Submissão
+## 🏗️ Arquitetura da Solução e Transformadores (Scikit-Learn)
 
-Você pode manter sua solução em um repositório pessoal para fins de portfólio, mas **a submissão oficial deve ser feita por e-mail**, conforme descrito no PDF, para garantir a **anonimidade na avaliação**.
+O projeto consolida diversas etapas complexas em um único `Pipeline` customizado que aplica regras dinâmicas. Foram desenvolvidas as seguintes classes:
 
-💻 A solução deve ser desenvolvida e entregue obrigatoriamente em Python.
+### Tratamento de Nulos e Categorias
+- `ImputacaoFLAG_PF`: Converte a flag de cliente corporativo/físico (Mapeia "X" para 1 e nulos para 0).
+- `ImputacaoValueUnknown`: Preenche dados categóricos vazios (ex: `DOMINIO_EMAIL`, `PORTE`) com a string "UNKNOWN".
+- `ImputacaoHierarquicaValor`: Preenche nulos numéricos (como `VALOR_A_PAGAR`) buscando a mediana na hierarquia: Cliente+Safra -> Cliente -> Mediana Global.
+- `ImputacaoCEP2` e `ImputacaoDDDGeografico`: Imputação inteligente do DDD mapeando através da moda do CEP e das regras de negócio de áreas geográficas.
+- `TratamentoDataCadastro`: Substitui datas de cadastro vazias pela data mais recente disponível na base.
+- `OrdinalEncoderAprendiz`: Codificação de categorias que mapeia automaticamente categorias inéditas no teste para -`1`, evitando quebras de código.
 
-⚠️ **Não inclua informações pessoais (nome, LinkedIn, GitHub, etc.) nos arquivos entregues.**
+### Engenharia de Atributos (Feature Engineering)
+- `DiferencaDiasTransformer`: Cria variáveis numéricas calculando o intervalo de dias entre Emissão vs Vencimento, e Cadastro vs Emissão.
+- `SplitSafraTransformer` e `OrdinalCategoricalWithInitTransformer`: Quebra a Safra (Ano/Mês) e a transforma em uma variável ordinal contínua baseada no tempo decorrido desde a data mínima.
+- `MediaHistoricaInadimplencia`: Calcula a taxa de inadimplência histórica do cliente utilizando médias móveis (`lag=1`).
 
-## Recomendação
+### Gerenciamento do Pipeline
+- `DropCols` e `TransformarIndex`: Remove colunas de datas originais e define as chaves primárias (`ID_CLIENTE` e `SAFRA_REF`) como índices, garantindo que o modelo treine apenas nos atributos corretos.
 
-Mais do que aplicar técnicas avançadas, queremos entender **como você pensa, estrutura sua solução e toma decisões com base no problema de negócio**.
-Soluções bem organizadas, com raciocínio claro e decisões justificadas são sempre valorizadas.
+## 📊 Validação Out-of-Time (OOT) e Análise Exploratória
 
-Seja também **curioso e criativo**: explore os dados com atenção e construa sua solução como se fosse apresentar para um cliente — explicando o que foi feito, por que foi feito e como sua proposta pode ser útil na prática.
+A divisão dos dados foi feita de forma estritamente temporal, utilizando 65.540 linhas para Treino (2018-08 a 2021-01) e 11.874 linhas para Teste (2021-02 a 2021-06).
 
-**Boa sorte no desafio!**
+**Análises Visuais Pós-Imputação:**
+- **Grids Numéricos (Boxplots)**: Geração de gráficos comparando a distribuição estatística de todas as variáveis contínuas entre as bases de Treino, Teste e Submissão para garantir a estabilidade das imputações.
+- **Evolução Temporal**: Monitoramento contínuo em gráfico de linha avaliando a variação da taxa de inadimplência ao longo do tempo, dividindo visualmente as zonas de treinamento e validação.
+
+## 📈 Modelagem e Otimização
+O projeto finaliza comparando modelos base baseados em árvores (Random Forest, Gradient Boosting, XGBoost) e utilizando o **Optuna** para buscar o melhor conjunto de hiperparâmetros, priorizando o **Brier Score** como métrica primária para otimizar as estimativas de probabilidade de crédito.
